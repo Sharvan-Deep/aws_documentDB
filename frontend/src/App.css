@@ -1,0 +1,31 @@
+/* ── Global Styles ────────────────────────────────── */
+body { background-color: #f4f6f9; }
+
+/* ── Stat Cards ──────────────────────────────────── */
+.stat-card { transition: transform .15s; }
+.stat-card:hover { transform: translateY(-3px); }
+
+/* ── Tables ──────────────────────────────────────── */
+.table th { font-size: .8rem; text-transform: uppercase; letter-spacing: .5px; color: #6c757d; }
+.table td { vertical-align: middle; }
+.table-hover tbody tr { cursor: pointer; }
+
+/* ── JSON viewer ─────────────────────────────────── */
+.json-key { color: #82aaff; }
+.json-string { color: #c3e88d; }
+.json-number { color: #f78c6c; }
+.json-bool { color: #c792ea; }
+.json-null { color: #ff5370; }
+
+/* ── Query preset list ───────────────────────────── */
+.preset-btn { border-left: 3px solid transparent; transition: border-color .15s, background .15s; }
+.preset-btn:hover { border-left-color: #0d6efd; background: #f0f6ff !important; }
+
+/* ── Badge pills ─────────────────────────────────── */
+.badge { font-weight: 500; }
+
+/* ── Cursor pointer helper ───────────────────────── */
+.cursor-pointer { cursor: pointer; }
+
+/* ── Footer ──────────────────────────────────────── */
+.footer-bar { background: #212529; color: #adb5bd; font-size: .82rem; }

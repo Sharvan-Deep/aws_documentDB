@@ -1,0 +1,20 @@
+# Environment variables (contains DB credentials)
+.env
+
+# Node modules
+node_modules/
+
+# TLS certificate (downloaded on EC2, not committed)
+global-bundle.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
