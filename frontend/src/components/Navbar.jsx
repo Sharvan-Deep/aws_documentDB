@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Database, LayoutDashboard, FileText, PlusCircle, TerminalSquare } from 'lucide-react';
+import { Database, LayoutDashboard, FileText, PlusCircle, TerminalSquare, Shield } from 'lucide-react';
 import { getHealth } from '../api/api';
 
 function Navbar() {
@@ -31,6 +31,7 @@ function Navbar() {
     { name: 'Reports', path: '/reports', icon: FileText, end: true },
     { name: 'New Report', path: '/reports/new', icon: PlusCircle },
     { name: 'Query Playground', path: '/query-playground', icon: TerminalSquare },
+    { name: 'Bottlenecks & Fixes', path: '/bottlenecks', icon: Shield },
   ];
 
   return (

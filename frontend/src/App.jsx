@@ -7,6 +7,7 @@ import Reports from './pages/Reports';
 import ReportDetail from './pages/ReportDetail';
 import CreateReport from './pages/CreateReport';
 import QueryPlayground from './pages/QueryPlayground';
+import Bottlenecks from './pages/Bottlenecks';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/reports/new" element={<CreateReport />} />
           <Route path="/reports/:id" element={<ReportDetail />} />
           <Route path="/query-playground" element={<QueryPlayground />} />
+          <Route path="/bottlenecks" element={<Bottlenecks />} />
         </Routes>
       </main>
       <Footer />

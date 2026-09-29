@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { queryNested, queryByType, queryByStatus, queryByCity, queryHighSeverity, querySearchTags, querySchemaAnalysis, queryCustom } from '../api/api';
+import { queryNested, queryByType, queryByStatus, queryByCity, queryHighSeverity, querySearchTags, querySchemaAnalysis, queryCustom, queryInspectorStats, queryDateRange } from '../api/api';
 import { motion } from 'framer-motion';
-import { Terminal, Code2, Database, Zap, Search, Server, Play, StopCircle } from 'lucide-react';
+import { Terminal, Code2, Database, Zap, Search, Server, Play, StopCircle, UserCircle, Calendar, FileCheck, TextSearch, Tags } from 'lucide-react';
 
 function QueryPlayground() {
   const [results, setResults] = useState(null);
@@ -52,7 +52,12 @@ function QueryPlayground() {
     { label: 'Reports by City', desc: 'Aggregation: group by location.city', call: queryByCity, icon: Server },
     { label: 'Schema Analysis', desc: 'Map/Reduce: extract unique fields', call: querySchemaAnalysis, icon: Database },
     { label: 'Nested Object Query', desc: 'location.city = Bengaluru', call: () => queryNested('location.city', 'Bengaluru'), icon: Search },
-    { label: 'Array Search (Tags)', desc: '$in operator: tags includes urgent', call: () => querySearchTags('urgent'), icon: Search }
+    { label: 'Array Search (Tags)', desc: '$in operator: tags includes urgent', call: () => querySearchTags('urgent'), icon: Search },
+    { label: 'Inspector Stats', desc: 'Aggregation: group by inspector', call: queryInspectorStats, icon: UserCircle },
+    { label: 'Date Range Query', desc: 'Date filter: Oct 2024 reports', call: () => queryDateRange('2024-10-01', '2024-10-31'), icon: Calendar },
+    { label: '$exists: Has Temperature Log', desc: '$exists: temperatureLog exists', call: () => queryCustom({ filter: { temperatureLog: { $exists: true } } }), icon: FileCheck },
+    { label: "$regex: Cities starting with 'B'", desc: "$regex: location.city starts with 'B'", call: () => queryCustom({ filter: { 'location.city': { $regex: '^B', $options: 'i' } } }), icon: TextSearch },
+    { label: '$all: Multiple Tags', desc: '$all: ["urgent", "safety-critical"]', call: () => queryCustom({ filter: { tags: { $all: ['urgent', 'safety-critical'] } } }), icon: Tags }
   ];
 
   const syntaxHighlight = (jsonObj) => {
