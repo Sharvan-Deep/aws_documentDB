@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Dashboard from './pages/Dashboard';
@@ -9,9 +10,10 @@ import QueryPlayground from './pages/QueryPlayground';
 
 function App() {
   return (
-    <div className="d-flex flex-column min-vh-100">
+    <div className="flex flex-col min-h-screen">
+      <Toaster position="top-right" richColors />
       <Navbar />
-      <main className="container-fluid px-4 py-4 flex-fill">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/reports" element={<Reports />} />
