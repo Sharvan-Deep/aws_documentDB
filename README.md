@@ -1,83 +1,72 @@
-# 🔍 Inspection Report System — Amazon DocumentDB
+# 24CC3014-P070 | Amazon DocumentDB for a Document-Oriented Application
 
-> **Project 24CC3014-P070** | Team T211 | AWS Hackathon
+**Team:** T211 (4 Students)
+**Hackathon Use Case:** Store variable-schema inspection reports & Query nested document structures.
 
-A document-oriented inspection report management system powered by **Amazon DocumentDB**, demonstrating variable-schema storage and nested document querying.
+## 🚀 Project Overview
 
-## 🎯 Use Cases
+This project is a modern, full-stack application designed to demonstrate the flexibility and power of **Amazon DocumentDB**. It allows users to generate, manage, and query "Inspection Reports" (e.g., Vehicle Inspections, Building Inspections) that share a single database collection despite having completely different internal data structures (Variable Schemas). 
 
-1. **Store variable-schema inspection reports** — Vehicle, Building, and Food Safety reports with completely different fields, all in the same collection
-2. **Query nested document structures** — Search inside deeply nested objects and arrays
+### ✨ Key Capabilities Demonstrated
+1. **Variable Schema Handling:** Creating documents with completely different fields in the exact same collection without schema migrations.
+2. **Nested Querying:** Searching deep into nested arrays (e.g., `findings.severity = 'high'`).
+3. **Aggregation Pipelines:** Grouping reports by status, type, and location to power the frontend dashboard.
+4. **Driver Compatibility:** Configured specifically to avoid MongoDB feature compatibility gaps (e.g., explicitly disabling `retryWrites`).
 
-## 🏗️ Architecture
+---
 
-```
-[Browser] → [Node.js + Express (EC2)] → [Amazon DocumentDB (VPC)]
-```
+## 🏗️ Tech Stack
 
-## 🚀 Setup & Run
+* **Frontend:** React 18, Vite, Tailwind CSS (v3), Lucide React, Framer Motion, Chart.js.
+* **Backend:** Node.js, Express.js.
+* **Database:** Amazon DocumentDB (MongoDB API), `mongodb` native Node.js driver.
 
-### Prerequisites
-- AWS account with DocumentDB cluster (see `PROJECT_PLAN.md` Phase 1)
-- EC2 instance in the same VPC
-- Node.js 18+ installed
+---
 
-### Installation
-```bash
-# Clone/copy the project to EC2
-cd ~/inspection-app
+## 📊 Current Project Status
 
-# Install dependencies
-npm install
+The codebase logic is **100% complete**. The UI and API are fully built. The next immediate step is to provision the Amazon DocumentDB cluster on AWS to bring the app to life.
 
-# Download DocumentDB TLS certificate
-wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+- [ ] **Phase 1: AWS Infrastructure (Pending)** - Set up the Amazon DocumentDB cluster on the AWS Console.
+- [ ] **Phase 2: Database Setup (Pending)** - Configure connection strings and run the seed script.
+- [x] **Phase 3: Backend REST API (Completed)** - Full Express API with DocumentDB integrations.
+- [x] **Phase 4: Frontend UI (Completed)** - Modern SaaS-style React Dashboard.
 
-# Edit .env with your DocumentDB credentials
-nano .env
+---
 
-# Seed the database
-npm run seed
+## 💻 How to Run Locally
 
-# Start the server
-npm start
-# or for development with auto-reload:
-npm run dev
-```
+*Note: The application will crash on startup until Phase 1 and 2 are completed (the database must exist).*
 
-### Access
-Open `http://<EC2-PUBLIC-IP>:3000` in your browser.
+### 1. Configure the Backend (Amazon DocumentDB)
+1. Complete the AWS Console setup for your DocumentDB cluster.
+2. Download the RDS TLS certificate:
+   ```bash
+   wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+   ```
+   *Place this file in the `backend/` directory.*
+3. Rename `backend/.env.example` to `backend/.env` (or create one) and insert your AWS credentials:
+   ```env
+   PORT=5000
+   DB_HOST=your-cluster-url.docdb.amazonaws.com
+   DB_PORT=27017
+   DB_USER=your_db_username
+   DB_PASS=your_db_password
+   ```
+4. Install dependencies and start the backend:
+   ```bash
+   cd backend
+   npm install
+   npm run seed   # Run this once to populate fake data
+   npm run dev    # Starts API on http://localhost:5000
+   ```
 
-## 📡 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/reports` | List reports (filter: `?type=`, `?status=`, `?city=`) |
-| `GET` | `/api/reports/:id` | Get single report |
-| `POST` | `/api/reports` | Create report (any schema) |
-| `PUT` | `/api/reports/:id` | Update report |
-| `DELETE` | `/api/reports/:id` | Delete report |
-| `PATCH` | `/api/reports/:id/findings` | Add finding to report |
-| `GET` | `/api/reports/stats/overview` | Dashboard statistics |
-| `GET` | `/api/queries/nested?field=X&value=Y` | Query nested fields |
-| `GET` | `/api/queries/by-type` | Reports by type |
-| `GET` | `/api/queries/high-severity` | High severity reports |
-| `GET` | `/api/queries/search-tags?tags=X,Y` | Search by tags |
-| `POST` | `/api/queries/custom` | Custom query |
-| `GET` | `/api/queries/schema-analysis` | Variable schema proof |
-| `GET` | `/api/health` | Health check |
-
-## ⚠️ DocumentDB Compatibility Notes
-
-- `retryWrites=false` is **required** (DocumentDB does not support retryable writes)
-- `$text` search is not supported — use `$regex` instead
-- TLS is required — use `global-bundle.pem`
-
-## 👥 Team T211
-
-| Student | Role |
-|---------|------|
-| Student 1 | AWS Infrastructure Setup |
-| Student 2 | Backend API (CRUD) |
-| Student 3 | Backend API (Queries) + Advanced Features |
-| Student 4 | Frontend + Testing |
+### 2. Run the Frontend
+1. Open a new terminal instance.
+2. Install dependencies and start the Vite dev server:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev    # Starts UI on http://localhost:5173
+   ```
+3. Open your browser and navigate to `http://localhost:5173`.
