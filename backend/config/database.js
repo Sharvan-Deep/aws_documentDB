@@ -70,7 +70,7 @@ async function connectToDatabase() {
       minPoolSize: 1,
       // Timeouts
       connectTimeoutMS: 10000,
-      socketTimeoutMS: 60000,
+      socketTimeoutMS: 45000,
       serverSelectionTimeoutMS: 10000,
     });
 
