@@ -180,7 +180,7 @@ const client = new MongoClient(uri, {
   maxPoolSize: 10,
   minPoolSize: 1,
   connectTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
+  socketTimeoutMS: 60000,
   serverSelectionTimeoutMS: 10000,
 });`
     },
