@@ -98,3 +98,12 @@ The following actions were conducted to finalize alignment:
   - **Slide 14:** Inaccurately lists `ports 22 & 5000` (should be `3000`) and incorrectly states the allow-list is in `queryController.js` (is now `validateQuery.js`).
 - **Deck v3 Generation:** Based on the inaccuracies detected, I successfully generated `docs/T211_DocumentDB_Presentation_v3.pptx` correcting these precise textual elements using an automated python script, while preserving theme and layout.
 - **Testing Disclaimer:** Nothing was tested against a live Amazon DocumentDB cluster. The tests run cover the query validator logic natively in Node; backend DB endpoints were not run.
+
+## 11. Second follow-up
+- **Step 1:** Reverted `socketTimeoutMS` from 60000 back to 45000 in `backend/config/database.js` and `frontend/src/pages/Bottlenecks.jsx`. Retained port 3000 changes.
+- **Step 2:** Reviewed `database.js` logic. Reverted `LOGIC-OTHER` changes (the `console.warn` string and `encodeURIComponent` wrapper on `caFilePath`) while preserving the required production exit logic. Confirmed line numbers for all SKILL.md requirements (`caFilePath` at 30, production exit at 40, no `tlsAllowInvalidCertificates` at 55, `retryWrites=false` at 55, username/password `encodeURIComponent` at 59).
+- **Step 3:** Confirmed via `git ls-files` that `backend/.env` is NOT tracked.
+- **Step 4:** Added and committed untracked project files (`.gitignore`, `frontend/.gitignore`, `package.json`, `scripts/`) after adding `*.zip` to `.gitignore`.
+- **Step 5:** Compared `v3.pptx` (52KB) and `v2.pptx` (275KB) internals. The size difference is strictly due to `python-pptx` saving the archive with `ZIP_DEFLATED` compression, whereas the original was saved with `ZIP_STORED` (no compression). No files, media, or themes were missing from the `v3` archive.
+- **Step 6:** Exported slides to JPG via COM automation and visually inspected them. Identified text cramping/overflow on Slide 11. Fixed the overflow by shortening the billing note to: "Stop cluster when idle. (Note: Storage is still billed; AWS auto-restarts after 7 days)". Slide 8 rendered perfectly with no overflow.
+- **Step 7:** Confirmed Slide 8 correctly uses `compliance: { fireCode: false }`, which accurately maps to the required `compliance.fireCode` property via dot-notation in the DocumentDB data model.
