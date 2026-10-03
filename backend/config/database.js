@@ -44,7 +44,9 @@ async function connectToDatabase() {
     // Development: warn and attempt connection without TLS (useful for local
     // mongod testing; will still fail against a real DocumentDB cluster).
     console.warn('⚠️  TLS certificate (global-bundle.pem) not found at:', caFilePath);
-    console.warn('   Download it with:  bash scripts/get-cert.sh');
+    console.warn('   Download it on EC2 with:');
+    console.warn('   wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem');
+    console.warn('');
     console.warn('   Attempting connection without TLS (will fail on DocumentDB)...');
   }
 
@@ -53,7 +55,7 @@ async function connectToDatabase() {
   // directConnection=true: bypasses replica-set topology discovery inside VPC; still to be tested on cluster.
   // tlsAllowInvalidCertificates is intentionally NOT set — always validate.
   const tlsOptions = caExists
-    ? `tls=true&tlsCAFile=${encodeURIComponent(caFilePath)}&retryWrites=false&directConnection=true`
+    ? `tls=true&tlsCAFile=${caFilePath}&retryWrites=false&directConnection=true`
     : 'retryWrites=false&directConnection=true';
 
   const uri = `mongodb://${encodeURIComponent(process.env.DOCDB_USERNAME)}:${encodeURIComponent(process.env.DOCDB_PASSWORD)}@${process.env.DOCDB_HOST}:${process.env.DOCDB_PORT}/?${tlsOptions}`;
