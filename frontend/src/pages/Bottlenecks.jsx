@@ -32,63 +32,29 @@ export default function Bottlenecks() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Compatibility Data
-  const compatibilityData = [
+  // ── Compatibility Matrix ─────────────────────────────────
+  // Rebuilt from SKILL.md section 5 only.
+  // "Supported, but..." rows reflect confirmed documentation.
+  // "To test on cluster" rows are not yet observed on our cluster.
+  // ─────────────────────────────────────────────────────────
+
+  // Confirmed items (from SKILL.md §5 / AWS docs)
+  const confirmedItems = [
     {
       feature: 'retryWrites',
       category: 'Driver / Protocol',
       mongo: { status: 'supported', label: 'Supported' },
-      docdb: { status: 'unsupported', label: 'Not supported' },
+      docdb: { status: 'limited', label: 'Supported only from engine 8.0.2' },
       fix: 'Set retryWrites=false in connection string',
-      detail: 'DocumentDB does not support retryable writes. Setting retryWrites=true causes write operations to fail immediately.'
+      detail: 'Retryable writes are supported only from engine 8.0.2. We use engine 5.0, so we set retryWrites=false in the connection URI. Source: AWS documentation.'
     },
     {
-      feature: '$lookup (joins)',
-      category: 'Aggregation',
-      mongo: { status: 'supported', label: 'Full support' },
-      docdb: { status: 'limited', label: 'Limited' },
-      fix: 'Embed related data instead of referencing',
-      detail: 'DocumentDB has query shape constraints on multi-stage $lookup joins across collections; denormalized schema avoids joins completely.'
-    },
-    {
-      feature: 'Change Streams',
-      category: 'Real-time Events',
-      mongo: { status: 'supported', label: 'Full support' },
-      docdb: { status: 'limited', label: 'Limited' },
-      fix: 'Use polling instead of real-time streams',
-      detail: 'DocumentDB Change Streams require specific cluster parameter groups enabled and have limitations on event filtering.'
-    },
-    {
-      feature: 'Transactions',
-      category: 'Concurrency',
-      mongo: { status: 'supported', label: 'Multi-doc' },
-      docdb: { status: 'limited', label: 'Single-doc only' },
-      fix: 'Design for single-document atomicity',
-      detail: 'Multi-document ACID transactions across multiple collections have constraints. Embed inspection items within single inspection document.'
-    },
-    {
-      feature: '$merge',
-      category: 'Aggregation',
-      mongo: { status: 'supported', label: 'Supported' },
-      docdb: { status: 'unsupported', label: 'Not supported' },
-      fix: 'Use $out or manual insert after aggregate',
-      detail: 'The $merge pipeline stage is not available in DocumentDB. Use $out to create a target collection or materialize via client code.'
-    },
-    {
-      feature: '$text search',
+      feature: '$text search / Text indexes',
       category: 'Search & Indexing',
-      mongo: { status: 'supported', label: 'Supported' },
-      docdb: { status: 'unsupported', label: 'Not supported' },
-      fix: 'Use $regex for text-like searches',
-      detail: 'DocumentDB lacks text indexes (text index type and $text query operator). Regex with case-insensitive option "i" provides search capabilities.'
-    },
-    {
-      feature: 'Aggregation Pipelines',
-      category: 'Analytics',
-      mongo: { status: 'supported', label: 'Full' },
-      docdb: { status: 'supported', label: 'Supported' },
-      fix: 'Works as expected',
-      detail: 'Core aggregation operators like $group, $match, $sort, $project, $unwind, and $facet execute with high performance.'
+      mongo: { status: 'supported', label: 'Full-text search' },
+      docdb: { status: 'limited', label: 'Supported, but tokenisation differs from MongoDB' },
+      fix: 'Use $regex for case-insensitive text searches',
+      detail: 'DocumentDB has native text indexes, but tokenisation differs from MongoDB and matching is case-insensitive. It is not an unsupported feature. We use $regex for our search to avoid tokenisation differences. Source: AWS documentation.'
     },
     {
       feature: 'Nested Document Queries',
@@ -96,31 +62,74 @@ export default function Bottlenecks() {
       mongo: { status: 'supported', label: 'Full' },
       docdb: { status: 'supported', label: 'Supported' },
       fix: 'Works as expected',
-      detail: 'Dot-notation queries like findings.severity and location.city query seamlessly into subdocuments.'
+      detail: 'Dot-notation queries like findings.severity and location.city query seamlessly into subdocuments. Confirmed working in the Query Playground.'
     },
     {
-      feature: 'Array Queries ($in, $all)',
+      feature: 'Array Queries ($in, $all, $elemMatch)',
       category: 'Querying',
       mongo: { status: 'supported', label: 'Full' },
       docdb: { status: 'supported', label: 'Supported' },
       fix: 'Works as expected',
-      detail: 'Operators such as $in, $nin, $all, and $elemMatch are fully compatible for querying tags, checklist arrays, and items.'
+      detail: 'Operators $in, $nin, $all, and $elemMatch are in the allow-list and expected to work. $elemMatch is used to match two conditions on the same array element. Confirm on the cluster.'
     },
     {
-      feature: 'Indexes',
+      feature: 'Aggregation Pipelines ($group, $sort, $match …)',
+      category: 'Analytics',
+      mongo: { status: 'supported', label: 'Full' },
+      docdb: { status: 'supported', label: 'Supported' },
+      fix: 'Works as expected',
+      detail: 'Core aggregation operators $group, $match, $sort, $project, $unwind execute with high performance. Used for all dashboard charts and inspector stats. Expected to work; confirm on the cluster.'
+    },
+    {
+      feature: 'Indexes (B-tree, compound, unique)',
       category: 'Search & Indexing',
       mongo: { status: 'supported', label: 'Full' },
       docdb: { status: 'supported', label: 'Supported' },
       fix: 'Works as expected',
-      detail: 'Single-field, compound, unique, and sparse B-tree indexes are supported and heavily utilized to accelerate queries.'
+      detail: 'Single-field, compound, unique, and sparse B-tree indexes are set up by the seed script. Expected to work; confirm on the cluster.'
+    },
+    {
+      feature: 'Multi-document transactions',
+      category: 'Concurrency',
+      mongo: { status: 'supported', label: 'Full ACID' },
+      docdb: { status: 'limited', label: 'Supported on 4.0+ [confirm]' },
+      fix: 'All mutations are single-document ($set, $push) — transactions not needed',
+      detail: 'Per a third-party migration guide, multi-document transactions are supported on 4.0 and later. Not confirmed in AWS docs. All our operations are single-document; we do not rely on multi-doc transactions.'
     }
   ];
 
-  const filteredFeatures = compatibilityData.filter((item) => {
+  // Items that must be tested on our cluster before claiming as a gap
+  const toTestItems = [
+    {
+      feature: '$lookup (joins)',
+      category: 'Aggregation',
+      note: 'Not used in this project. SKILL.md says to test on cluster before claiming as a gap.',
+      observedError: '[insert from live test]'
+    },
+    {
+      feature: '$merge',
+      category: 'Aggregation',
+      note: 'Not used. $out or client-side upsert used instead. Test on cluster to confirm.',
+      observedError: '[insert from live test]'
+    },
+    {
+      feature: 'Change Streams',
+      category: 'Real-time Events',
+      note: 'Not used. Replaced with polling. Test on cluster to confirm behaviour.',
+      observedError: '[insert from live test]'
+    },
+    {
+      feature: 'directConnection behaviour',
+      category: 'Driver / Protocol',
+      note: 'directConnection=true is set in our connection string. This is a choice, not yet confirmed to be required on the cluster.',
+      observedError: '[insert from live test]'
+    }
+  ];
+
+  const filteredFeatures = confirmedItems.filter((item) => {
     if (filterType === 'all') return true;
     if (filterType === 'supported') return item.docdb.status === 'supported';
     if (filterType === 'limited') return item.docdb.status === 'limited';
-    if (filterType === 'unsupported') return item.docdb.status === 'unsupported';
     return true;
   });
 
@@ -156,7 +165,7 @@ export default function Bottlenecks() {
       title: '1. Connection String: Disabling retryWrites',
       filePath: 'backend/config/database.js',
       description:
-        'Amazon DocumentDB does not support retryable writes. In MongoDB 4.2+, retryWrites=true is default. Connecting with retryWrites=true causes write operations to immediately throw error: "Retryable writes are not supported". We configure retryWrites=false explicitly.',
+        'Retryable writes are supported only from Amazon DocumentDB engine 8.0.2. We use engine 5.0, so retryWrites=true would cause write operations to fail. We set retryWrites=false explicitly in the connection URI.',
       code: `// config/database.js — DocumentDB connection URI
 const tlsOptions = fs.existsSync(caFilePath)
   ? \`tls=true&tlsCAFile=\${caFilePath}&retryWrites=false&directConnection=true\`
@@ -180,12 +189,12 @@ const client = new MongoClient(uri, {
       title: '2. Search Implementation: $regex instead of $text',
       filePath: 'backend/controllers/reportController.js',
       description:
-        'MongoDB applications typically use $text indexes and queries. Amazon DocumentDB does not support text indexes. We engineered our search to leverage case-insensitive $regex matching across indexed fields with compound queries.',
+        'DocumentDB has text indexes but tokenisation differs from MongoDB. We use case-insensitive $regex matching to avoid tokenisation differences and ensure predictable behaviour.',
       code: `// controllers/reportController.js — Case-insensitive regex filter
-// ❌ MongoDB pattern (FAILS in DocumentDB: $text index unsupported)
+// ❌ MongoDB pattern (may produce different results in DocumentDB due to tokenisation differences)
 // const filter = { $text: { $search: searchTerm } };
 
-// ✅ DocumentDB compatible pattern: $regex with 'i' flag
+// ✅ DocumentDB safe pattern: $regex with 'i' flag
 const filter = {};
 if (type) filter.type = type;
 if (status) filter.status = status;
@@ -205,7 +214,7 @@ const reports = await db.collection('reports')
       title: '3. Node.js Driver Compatibility: mongodb@5.9.2',
       filePath: 'backend/package.json',
       description:
-        'DocumentDB emulates MongoDB 4.0/5.0 wire protocols. Upgrading to mongodb driver v6+ introduces newer client handshakes and authentication behaviors that can fail with DocumentDB. Pinning mongodb to ^5.9.2 ensures 100% protocol and TLS CA bundle stability.',
+        'DocumentDB emulates MongoDB 5.0 wire protocols. Pinning mongodb to ^5.9.2 ensures TLS CA bundle stability and avoids authentication handshake issues that can occur with newer driver versions.',
       code: `// backend/package.json
 {
   "name": "inspection-app-backend",
@@ -220,8 +229,8 @@ const reports = await db.collection('reports')
 
 // Key considerations:
 // 1. mongodb v5.x supports TLS CA file parameters reliably with AWS global-bundle.pem
-// 2. Avoids unsupported speculative authentication handshakes
-// 3. directConnection=true bypasses replica set topology discovery issues in VPC`
+// 2. Stay on v5 unless a newer version has been tested on our cluster
+// 3. directConnection=true — choice still to be tested on the cluster`
     }
   ];
 
@@ -250,6 +259,7 @@ const reports = await db.collection('reports')
           <p className="text-slate-500 text-sm mt-1 max-w-3xl">
             A comprehensive overview of architectural mitigations, API compatibility differences,
             cost optimization techniques, and driver configurations implemented in this project.
+            Sources: SKILL.md §5 and AWS documentation.
           </p>
         </div>
 
@@ -266,7 +276,7 @@ const reports = await db.collection('reports')
         </div>
       </div>
 
-      {/* Section 1: Compatibility Table */}
+      {/* Section 1: Confirmed Compatibility Table */}
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -279,7 +289,7 @@ const reports = await db.collection('reports')
               </h2>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              Detailed feature comparison and engineered workarounds for DocumentDB cloud limitations.
+              Confirmed items from SKILL.md §5 and AWS documentation. Items not yet tested on the cluster are in the "To test on cluster" section below.
             </p>
           </div>
 
@@ -293,7 +303,7 @@ const reports = await db.collection('reports')
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All ({compatibilityData.length})
+              All ({confirmedItems.length})
             </button>
             <button
               onClick={() => setFilterType('supported')}
@@ -303,7 +313,7 @@ const reports = await db.collection('reports')
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Supported (4)
+              Supported ({confirmedItems.filter(i => i.docdb.status === 'supported').length})
             </button>
             <button
               onClick={() => setFilterType('limited')}
@@ -313,17 +323,7 @@ const reports = await db.collection('reports')
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Limited (3)
-            </button>
-            <button
-              onClick={() => setFilterType('unsupported')}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                filterType === 'unsupported'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Unsupported (3)
+              Limited ({confirmedItems.filter(i => i.docdb.status === 'limited').length})
             </button>
           </div>
         </div>
@@ -372,7 +372,53 @@ const reports = await db.collection('reports')
         </div>
       </section>
 
-      {/* Section 2: Cost Optimization Panel */}
+      {/* Section 2: To Test on Cluster */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 bg-amber-100 rounded-lg text-amber-700">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              To Test on Cluster
+            </h2>
+            <p className="text-xs text-slate-500">
+              These items cannot be classified until tested on our live cluster. None are used in production code.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="py-3.5 px-4 w-1/4">Feature</th>
+                  <th className="py-3.5 px-4 w-1/6">Category</th>
+                  <th className="py-3.5 px-4">Note</th>
+                  <th className="py-3.5 px-4 w-1/4">Observed Error (live test)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 text-sm">
+                {toTestItems.map((row) => (
+                  <tr key={row.feature} className="hover:bg-slate-50/75 transition-colors">
+                    <td className="py-3.5 px-4 align-top font-mono font-bold text-slate-900 text-sm">{row.feature}</td>
+                    <td className="py-3.5 px-4 align-top text-xs text-slate-500">{row.category}</td>
+                    <td className="py-3.5 px-4 align-top text-xs text-slate-600 leading-relaxed">{row.note}</td>
+                    <td className="py-3.5 px-4 align-top">
+                      <span className="text-xs font-mono text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                        {row.observedError}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 3: Cost Optimization Panel */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-emerald-100 rounded-lg text-emerald-700">
@@ -383,12 +429,12 @@ const reports = await db.collection('reports')
               Cost Optimization Strategy
             </h2>
             <p className="text-xs text-slate-500">
-              Pragmatic AWS resource sizing and lifecycle management saving ~66% to 100% on cloud expenses.
+              Pragmatic AWS resource sizing and lifecycle management to minimize cloud expenses.
             </p>
           </div>
         </div>
 
-        {/* 4 Stat Highlights */}
+        {/* 4 Strategy Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-blue-300 transition-colors">
             <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
@@ -397,147 +443,95 @@ const reports = await db.collection('reports')
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-900">db.t3.medium</div>
             <p className="text-xs text-slate-500 mt-1">
-              Cheapest DocumentDB instance class (2 vCPU, 4 GiB RAM, burstable).
-            </p>
-          </div>
-
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-emerald-300 transition-colors">
-            <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Hourly Compute Rate</span>
-              <DollarSign className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="mt-2 text-2xl font-bold text-emerald-600">$0.076 / hr</div>
-            <p className="text-xs text-slate-500 mt-1">
-              Low on-demand baseline rate for development and evaluation.
+              One instance, small class. Cheapest burstable tier for demo use.
             </p>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-blue-300 transition-colors">
             <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Topology Optimization</span>
+              <span>Topology</span>
               <TrendingDown className="w-4 h-4 text-blue-600" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">~66% Savings</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">Single Node</div>
             <p className="text-xs text-slate-500 mt-1">
-              Single instance (1 node) used instead of production 3-node HA replica set.
+              One instance instead of a 3-node HA replica set. All functionality retained for the demo.
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-amber-300 transition-colors">
+            <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
+              <span>Idle Lifecycle</span>
+              <Clock className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">Stop When Idle</div>
+            <p className="text-xs text-slate-500 mt-1">
+              Stop the app, then stop the cluster when not in use. Saves compute cost to zero while stopped.
             </p>
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-purple-300 transition-colors">
             <div className="flex items-center justify-between text-slate-500 text-xs font-medium">
-              <span>Idle State Cost</span>
-              <Clock className="w-4 h-4 text-purple-600" />
+              <span>Post-Demo</span>
+              <Layers className="w-4 h-4 text-purple-600" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-slate-900">100% Savings</div>
+            <div className="mt-2 text-2xl font-bold text-slate-900">Delete at End</div>
             <p className="text-xs text-slate-500 mt-1">
-              Cluster stopped during idle hours + deleted after hackathon.
+              Delete the cluster and EC2 instance after the demo to eliminate all ongoing costs.
             </p>
           </div>
         </div>
 
-        {/* Detailed Cost Optimization Cards */}
+        {/* Strategies Detail */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Left 2 Cols: Strategies */}
-            <div className="lg:col-span-2 space-y-4">
-              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                Key Cost-Saving Strategies Applied
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
-                      1
-                    </span>
-                    Single Instance Architecture
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    By default, Amazon DocumentDB provisions 3 instances (1 primary writer + 2 replicas) for high availability across AZs. For the hackathon, we provisioned a <strong>single instance</strong>, achieving an immediate <strong>~66% cost reduction</strong> while retaining all database functionality.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
-                      2
-                    </span>
-                    db.t3.medium Instance Class
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Selected the <strong>db.t3.medium</strong> instance class ($0.076/hr in us-east-1). This is the lowest-cost tier available, providing burstable CPU credits that gracefully absorb inspection report aggregation queries without paying for idle r5 compute.
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
-                      3
-                    </span>
-                    Stop Cluster When Not In Use
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Amazon DocumentDB supports cluster-level <code>stop</code> and <code>start</code>. During off-hours, pausing the cluster yields <strong>100% compute savings</strong> ($0/hr for compute while stopped, paying only pennies for standard snapshot storage).
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">
-                      4
-                    </span>
-                    Post-Hackathon Teardown
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                    Automated AWS CLI teardown scripts ensure complete deletion of DocumentDB cluster, subnets, and EC2 instances after the hackathon evaluation, guaranteeing <strong>$0 ongoing residual cost</strong>.
-                  </p>
-                </div>
-
+          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            Cost-Saving Approach
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">1</span>
+                Single Instance Architecture
               </div>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                By default, Amazon DocumentDB provisions 3 instances (1 primary writer + 2 replicas) for high availability across AZs. For the demo, we provision a <strong>single instance</strong>, achieving a significant cost reduction while retaining all database functionality.
+              </p>
             </div>
 
-            {/* Right 1 Col: Cost Comparison Box */}
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-5 text-white flex flex-col justify-between">
-              <div>
-                <div className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">
-                  Budget Impact
-                </div>
-                <div className="text-lg font-bold">Hackathon vs Production Model</div>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  Comparing estimated monthly spend of standard DocumentDB configuration vs our optimized setup:
-                </p>
-
-                <div className="mt-4 space-y-3">
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                    <div className="text-xs text-slate-400">Standard Production (3x db.r5.large)</div>
-                    <div className="text-base font-bold text-red-400 mt-0.5">~$600+/month</div>
-                    <div className="text-[11px] text-slate-400">High availability, cross-AZ failover</div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                    <div className="text-xs text-emerald-400 font-semibold">Our Hackathon Setup (1x db.t3.medium)</div>
-                    <div className="text-xl font-bold text-emerald-300 mt-0.5">~$0.076 / hour</div>
-                    <div className="text-[11px] text-emerald-200">
-                      Total 48-hr hackathon compute: <strong>~$3.65</strong>
-                    </div>
-                  </div>
-                </div>
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <span className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</span>
+                db.t3.medium Instance Class
               </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-700 text-xs text-slate-400 flex items-center gap-1.5">
-                <Info className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <span>Zero waste, maximum hackathon ROI.</span>
-              </div>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                Selected the <strong>db.t3.medium</strong> instance class — the smallest available, providing burstable CPU credits that gracefully absorb inspection report aggregation queries without paying for idle compute.
+              </p>
             </div>
 
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">3</span>
+                Stop Cluster When Not In Use
+              </div>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                Amazon DocumentDB supports cluster-level <code>stop</code> and <code>start</code>. Stop the app first, then stop the cluster. AWS automatically restarts a stopped cluster after 7 days.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">4</span>
+                Delete After Demo
+              </div>
+              <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                Delete the cluster and the EC2 instance after the demo is complete. This eliminates all ongoing costs. Watch the Learner Lab budget shown on the lab page.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Section 3: Key Code Fixes */}
+      {/* Section 4: Key Code Fixes */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-blue-100 rounded-lg text-blue-700">

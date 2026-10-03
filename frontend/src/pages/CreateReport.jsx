@@ -36,7 +36,10 @@ function CreateReport() {
         res.data.data.fields.forEach(f => initFields[f.name] = '');
         setDynamicFields(initFields);
       }
-    }).catch(() => setDynamicFieldsDef([]));
+    }).catch((err) => {
+      setDynamicFieldsDef([]);
+      toast.error('Failed to load template fields');
+    });
   }, [type]);
 
   const buildJSON = () => {
