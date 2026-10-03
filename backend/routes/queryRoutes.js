@@ -6,6 +6,10 @@ const express = require('express');
 const router = express.Router();
 const queryController = require('../controllers/queryController');
 
+// ─── Meta / Info ──────────────────────────────────────────
+// GET /api/queries/allowed-operators — Always-on: returns the operator allow-list
+router.get('/allowed-operators', queryController.allowedOperators);
+
 // ─── Nested Document Queries ─────────────────────────────
 // GET /api/queries/nested?field=X&value=Y
 router.get('/nested', queryController.queryNestedFields);
