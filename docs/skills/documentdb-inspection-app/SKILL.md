@@ -47,7 +47,7 @@ description: Use when working on the T211 app that stores inspection reports of 
 - `schema-analysis` shows the fields of one sample document per type, not every possible field.
 - Routers: `routes/reportRoutes.js`, `routes/queryRoutes.js`, `routes/templateRoutes.js`.
 - There is no authentication. Restrict network access with the `app-sg` security group.
-- The UI uses only `GET /api/templates/:type`. Template write routes (POST, PUT, DELETE) are gated behind `ENABLE_TEMPLATE_WRITES=true`.
+- The UI uses only `GET /api/templates/:type`. Template write routes (POST, PUT, DELETE) are gated behind `ENABLE_TEMPLATE_WRITES=true` (default false).
 
 ## 5. Compatibility facts
 Confirmed from AWS documentation:
@@ -71,7 +71,7 @@ Must be tested on our cluster before claiming as a gap:
 
 ## 7. Cost rules
 - One instance. Stop the app first, then the cluster, when idle.
-- A stopped cluster still bills for storage and backups, and AWS restarts it after 7 days. [confirm in AWS docs]
+- A stopped cluster is still charged for storage, manual snapshots and automated backup storage within the retention window. AWS automatically starts a stopped cluster after seven days, and instance charges resume.
 - Delete the cluster and the EC2 instance after the demo.
 - Watch the Learner Lab budget shown on the lab page.
 
