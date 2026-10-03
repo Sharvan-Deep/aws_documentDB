@@ -19,7 +19,7 @@ const queryRoutes = require('./routes/queryRoutes');
 const templateRoutes = require('./routes/templateRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // ─── Middleware ────────────────────────────────────────────
 app.use(cors({
@@ -62,11 +62,37 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// ─── Database Health Check ───────────────────────────────
+// GET /api/health/db — Dedicated endpoint that pings DocumentDB
+// and returns 200 {status:'ok'} or 503 {status:'error'}.
+// Useful for load-balancer and monitoring health probes.
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const { getDb } = require('./config/database');
+    const db = getDb();
+    await db.command({ ping: 1 });
+    res.json({
+      status: 'ok',
+      database: 'connected',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'error',
+      database: 'disconnected',
+      error: error.message
+    });
+  }
+});
+
 // ─── Serve React build in production ─────────────────────
 if (process.env.NODE_ENV === 'production') {
   const frontendBuild = path.join(__dirname, '..', 'frontend', 'dist');
   app.use(express.static(frontendBuild));
-  app.get('*', (req, res) => {
+  // Fall back to index.html for non-API routes (SPA client-side routing).
+  // Regex excludes /api/* so the JSON 404 handler below still fires for
+  // unmatched API paths.
+  app.get(/^(?!\/api\/).*/, (req, res) => {
     res.sendFile(path.join(frontendBuild, 'index.html'));
   });
 }

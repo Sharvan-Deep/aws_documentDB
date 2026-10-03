@@ -16,6 +16,8 @@ function Reports() {
   const [filters, setFilters] = useState({ type: '', status: '', rating: '', city: '', inspector: '' });
   const [pageToFetch, setPageToFetch] = useState(1);
 
+  const [error, setError] = useState(null);
+
   useEffect(() => {
     getReportTypes().then(res => setTypes(res.data.data)).catch(() => {});
   }, []);
@@ -27,6 +29,7 @@ function Reports() {
 
   const fetchReports = async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = { page: pageToFetch, limit: 10 };
       if (filters.type) params.type = filters.type;
@@ -39,6 +42,7 @@ function Reports() {
       setReports(res.data.data);
       setPagination(res.data.pagination);
     } catch (err) {
+      setError(err.message || 'Failed to load reports from the server.');
       toast.error('Failed to load reports');
     } finally {
       setLoading(false);
@@ -161,6 +165,15 @@ function Reports() {
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                       <span className="text-slate-500">Loading reports...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-8 rounded-xl flex flex-col items-center justify-center text-center mx-4 my-2">
+                      <h3 className="text-lg font-semibold mb-1">Failed to load reports</h3>
+                      <p className="text-sm opacity-90">{error}</p>
                     </div>
                   </td>
                 </tr>

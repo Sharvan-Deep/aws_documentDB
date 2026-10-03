@@ -207,7 +207,7 @@ function Dashboard() {
           <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
           <div className="p-6 border-b border-slate-200">
             <h3 className="text-base font-semibold text-slate-800">Variable Schema Proof</h3>
-            <p className="text-xs text-slate-500 mt-1">Demonstrating DocumentDB flexibility</p>
+            <p className="text-xs text-slate-500 mt-1">Fields of <strong>one sample document</strong> per type — other documents of the same type may have additional fields</p>
           </div>
           <div className="p-6 flex-1 bg-slate-50/50">
             {schemas && schemas.map(s => {

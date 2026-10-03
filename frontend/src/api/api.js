@@ -23,6 +23,8 @@ export const queryDateRange = (startDate, endDate) => API.get('/queries/date-ran
 export const queryInspectorStats = () => API.get('/queries/inspector-stats');
 export const querySchemaAnalysis = () => API.get('/queries/schema-analysis');
 export const queryCustom = (body) => API.post('/queries/custom', body);
+// Always-on: returns the allow-list (not gated by ENABLE_QUERY_PLAYGROUND)
+export const queryAllowedOperators = () => API.get('/queries/allowed-operators');
 
 // ── Templates ────────────────────────────────────────
 export const getTemplates = () => API.get('/templates');
@@ -30,5 +32,7 @@ export const getTemplateByType = (type) => API.get(`/templates/${type}`);
 
 // ── Health ───────────────────────────────────────────
 export const getHealth = () => API.get('/health');
+export const getHealthDb = () => API.get('/health/db');
 
 export default API;
+

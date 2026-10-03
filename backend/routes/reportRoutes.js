@@ -8,8 +8,9 @@ const reportController = require('../controllers/reportController');
 
 // ─── Dashboard Stats ─────────────────────────────────────
 // GET /api/reports/stats/overview — Dashboard statistics
-// NOTE: This must be BEFORE the /:id route, otherwise
-// "stats" would be treated as an :id parameter.
+// NOTE: This is placed before /:id only for readability;
+// Express resolves these as literal path segments and would not
+// match "stats" as an :id parameter regardless of order.
 router.get('/stats/overview', reportController.getOverviewStats);
 
 // ─── Report Types ────────────────────────────────────────

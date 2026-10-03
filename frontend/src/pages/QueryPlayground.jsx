@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
-import { queryNested, queryByType, queryByStatus, queryByCity, queryHighSeverity, querySearchTags, querySchemaAnalysis, queryCustom, queryInspectorStats, queryDateRange } from '../api/api';
+import React, { useState, useEffect } from 'react';
+import { queryNested, queryByType, queryByStatus, queryByCity, queryHighSeverity, querySearchTags, querySchemaAnalysis, queryCustom, queryInspectorStats, queryDateRange, queryAllowedOperators } from '../api/api';
 import { motion } from 'framer-motion';
-import { Terminal, Code2, Database, Zap, Search, Server, Play, StopCircle, UserCircle, Calendar, FileCheck, TextSearch, Tags } from 'lucide-react';
+import { Terminal, Code2, Database, Zap, Search, Server, Play, StopCircle, UserCircle, Calendar, FileCheck, TextSearch, Tags, AlertTriangle, Lock, Info } from 'lucide-react';
 
 function QueryPlayground() {
   const [results, setResults] = useState(null);
   const [meta, setMeta] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('custom'); // 'presets' or 'custom'
+  const [playgroundError, setPlaygroundError] = useState(null); // 403 disabled message
+  const [allowedOps, setAllowedOps] = useState(null); // from /api/queries/allowed-operators
+  const [queryError, setQueryError] = useState(null); // 400 disallowed operator
 
   const [customQuery, setCustomQuery] = useState({
     filter: '{\n  "type": "vehicle",\n  "findings.severity": "high"\n}',
@@ -16,10 +19,27 @@ function QueryPlayground() {
     limit: 10
   });
 
+  // Load the allow-list on mount (always-on endpoint, not gated by playground flag)
+  useEffect(() => {
+    queryAllowedOperators()
+      .then(res => setAllowedOps(res.data))
+      .catch(() => {
+        // Fallback: hardcode the list if the endpoint is unreachable
+        // Source: backend/utils/validateQuery.js ALLOWED_DOLLAR_OPS
+        setAllowedOps({
+          allowedOperators: ['$eq','$ne','$gt','$gte','$lt','$lte','$in','$nin','$all','$regex','$options','$exists','$and','$or','$not','$nor','$elemMatch'],
+          blockedOperators: ['$where','$function','$accumulator'],
+          _source: 'hardcoded-fallback'
+        });
+      });
+  }, []);
+
   const handleRun = async (apiCall, label) => {
     setLoading(true);
     setResults(null);
     setMeta('Executing query...');
+    setPlaygroundError(null);
+    setQueryError(null);
     try {
       const start = Date.now();
       const res = await apiCall();
@@ -29,8 +49,24 @@ function QueryPlayground() {
       const count = data.count ?? data.data?.length ?? '?';
       setMeta(`${label} • ${count} results returned in ${time}ms`);
     } catch (err) {
-      setResults({ error: err.response?.data?.error || err.message });
-      setMeta('Query failed to execute');
+      const status = err.response?.status;
+      const errData = err.response?.data;
+
+      if (status === 403) {
+        // Query Playground is disabled — show clear message with the hint from the API
+        setPlaygroundError({
+          error: errData?.error || 'Query Playground is disabled.',
+          hint: errData?.hint || 'Set ENABLE_QUERY_PLAYGROUND=true in .env to enable this endpoint.'
+        });
+        setMeta('Query Playground disabled (403)');
+      } else if (status === 400 && errData?.error?.includes('operator')) {
+        // Disallowed operator returned from the backend
+        setQueryError(errData?.details || errData?.error || 'Disallowed operator in query');
+        setMeta('Query rejected — disallowed operator (400)');
+      } else {
+        setResults({ error: errData?.error || err.message });
+        setMeta('Query failed to execute');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,7 +86,7 @@ function QueryPlayground() {
     { label: 'Reports by Status', desc: 'Aggregation: group by status', call: queryByStatus, icon: Server },
     { label: 'High Severity Findings', desc: 'Nested: findings.severity = "high"', call: queryHighSeverity, icon: Zap },
     { label: 'Reports by City', desc: 'Aggregation: group by location.city', call: queryByCity, icon: Server },
-    { label: 'Schema Analysis', desc: 'Map/Reduce: extract unique fields', call: querySchemaAnalysis, icon: Database },
+    { label: 'Schema Analysis', desc: 'Map/Reduce: extract unique fields per type', call: querySchemaAnalysis, icon: Database },
     { label: 'Nested Object Query', desc: 'location.city = Bengaluru', call: () => queryNested('location.city', 'Bengaluru'), icon: Search },
     { label: 'Array Search (Tags)', desc: '$in operator: tags includes urgent', call: () => querySearchTags('urgent'), icon: Search },
     { label: 'Inspector Stats', desc: 'Aggregation: group by inspector', call: queryInspectorStats, icon: UserCircle },
@@ -63,7 +99,7 @@ function QueryPlayground() {
   const syntaxHighlight = (jsonObj) => {
     let json = JSON.stringify(jsonObj, null, 2);
     json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+    return json.replace(/(\"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*\"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
       let cls = 'text-orange-400';
       if (/^"/.test(match)) {
         if (/:$/.test(match)) { cls = 'text-blue-400'; } 
@@ -83,6 +119,44 @@ function QueryPlayground() {
         </h1>
         <p className="text-slate-500 text-sm mt-1">Execute native DocumentDB JSON queries and aggregations directly from the UI.</p>
       </div>
+
+      {/* Allow-list info panel */}
+      {allowedOps && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-start gap-3">
+          <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-blue-800">
+            <span className="font-semibold">Allowed operators: </span>
+            {allowedOps.allowedOperators.join(', ')}
+            {allowedOps._source === 'hardcoded-fallback' && (
+              <span className="ml-1 text-blue-500">(source: hardcoded fallback — backend/utils/validateQuery.js)</span>
+            )}
+            <span className="ml-2 font-semibold text-red-700">Blocked: </span>
+            <span className="text-red-700">{allowedOps.blockedOperators?.join(', ')}</span>
+          </div>
+        </div>
+      )}
+
+      {/* 403 Playground Disabled banner */}
+      {playgroundError && (
+        <div className="mb-4 bg-amber-50 border border-amber-300 rounded-lg px-4 py-4 flex items-start gap-3">
+          <Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-900">{playgroundError.error}</p>
+            <p className="text-xs text-amber-700 mt-1">{playgroundError.hint}</p>
+          </div>
+        </div>
+      )}
+
+      {/* 400 Disallowed operator warning */}
+      {queryError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-red-800">
+            <span className="font-semibold">Query rejected (disallowed operator): </span>
+            {queryError}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
         
@@ -116,7 +190,7 @@ function QueryPlayground() {
                       <input type="text" className="w-full bg-slate-900 text-green-400 font-mono text-xs p-2.5 rounded-lg border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" value={customQuery.sort} onChange={e => setCustomQuery({...customQuery, sort: e.target.value})} spellCheck="false" />
                     </div>
                     <div className="w-24">
-                      <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Limit</label>
+                      <label className="text-xs font-semibold text-slate-700 mb-1.5 block">Limit (max 100)</label>
                       <input type="number" className="w-full bg-slate-900 text-green-400 font-mono text-xs p-2.5 rounded-lg border border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" value={customQuery.limit} onChange={e => setCustomQuery({...customQuery, limit: e.target.value})} />
                     </div>
                   </div>
@@ -163,7 +237,7 @@ function QueryPlayground() {
                 </div>
               ) : null}
               
-              {!results && !loading && (
+              {!results && !loading && !playgroundError && !queryError && (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
                   <Database className="w-12 h-12 opacity-20" />
                   <p className="text-sm font-medium">Ready to run query</p>

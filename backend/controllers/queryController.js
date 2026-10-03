@@ -9,6 +9,29 @@
 // ═══════════════════════════════════════════════════════════
 
 const { getDb } = require('../config/database');
+const { ALLOWED_DOLLAR_OPS, validateOperators } = require('../utils/validateQuery');
+
+// ─── Query Playground Guard ──────────────────────────────
+// The two open-ended endpoints (nested + custom) accept raw
+// user-supplied MongoDB filters, which is powerful but risky.
+// They are disabled by default and require the feature flag:
+//   ENABLE_QUERY_PLAYGROUND=true   (in .env)
+
+/**
+ * Returns true if the playground is enabled; otherwise writes a
+ * 403 JSON response and returns false.
+ */
+function playgroundEnabled(res) {
+  if (process.env.ENABLE_QUERY_PLAYGROUND !== 'true') {
+    res.status(403).json({
+      success: false,
+      error: 'Query Playground is disabled.',
+      hint: 'Set ENABLE_QUERY_PLAYGROUND=true in .env to enable this endpoint.'
+    });
+    return false;
+  }
+  return true;
+}
 
 /**
  * GET /api/queries/nested?field=X&value=Y
@@ -20,13 +43,17 @@ const { getDb } = require('../config/database');
  *   ?field=inspector.department&value=Transport
  *   ?field=vehicleDetails.fuelType&value=diesel
  *   ?field=compliance.fireCode&value=false
+ *
+ * ⚠️  Requires ENABLE_QUERY_PLAYGROUND=true
  */
 exports.queryNestedFields = async (req, res) => {
+  if (!playgroundEnabled(res)) return;
+
   try {
     const db = getDb();
     const { field, value } = req.query;
 
-    if (!field || !value) {
+    if (!field || value === undefined || value === null || value === '') {
       return res.status(400).json({
         success: false,
         error: 'Both "field" and "value" query parameters are required',
@@ -38,6 +65,24 @@ exports.queryNestedFields = async (req, res) => {
       });
     }
 
+    // Reject field names that start with "$" or contain a "$" segment
+    // (e.g. "$where", "a.$where") to prevent operator injection via the key.
+    if (typeof field !== 'string' || field.startsWith('$') || field.split('.').some(seg => seg.startsWith('$'))) {
+      return res.status(400).json({
+        success: false,
+        error: 'Field name must not start with "$" or contain a "$" segment'
+      });
+    }
+
+    // value must arrive as a plain string; reject arrays and objects that
+    // Express can produce when the caller sends value[$ne]=x.
+    if (typeof value !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: '"field" and "value" must be plain strings. Arrays and objects are not allowed.'
+      });
+    }
+
     // Try to parse value as boolean or number if applicable
     let parsedValue = value;
     if (value === 'true') parsedValue = true;
@@ -45,6 +90,10 @@ exports.queryNestedFields = async (req, res) => {
     else if (!isNaN(value) && value.trim() !== '') parsedValue = Number(value);
 
     const filter = { [field]: parsedValue };
+
+    // Validate the constructed filter (catches any $ that slipped through)
+    validateOperators(filter, 'filter');
+
     const results = await db.collection('reports').find(filter).toArray();
 
     res.json({
@@ -56,6 +105,9 @@ exports.queryNestedFields = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in queryNestedFields:', error.message);
+    if (error.message.includes('not permitted') || error.message.includes('allow-list')) {
+      return res.status(400).json({ success: false, error: 'Disallowed operator in query', details: error.message });
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -193,6 +245,7 @@ exports.searchByTags = async (req, res) => {
 /**
  * GET /api/queries/date-range?startDate=2024-10-15&endDate=2024-10-20
  * Query 6: Find reports within a date range.
+ * Returns 400 if either date is invalid (NaN after new Date()).
  */
 exports.reportsByDateRange = async (req, res) => {
   try {
@@ -207,11 +260,22 @@ exports.reportsByDateRange = async (req, res) => {
       });
     }
 
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid date format. Use ISO 8601 (e.g. 2024-10-15)',
+        example: '?startDate=2024-10-15&endDate=2024-10-20'
+      });
+    }
+
     const results = await db.collection('reports')
       .find({
         createdAt: {
-          $gte: new Date(startDate),
-          $lte: new Date(endDate)
+          $gte: start,
+          $lte: end
         }
       })
       .sort({ createdAt: -1 })
@@ -303,6 +367,9 @@ exports.reportsByCity = async (req, res) => {
  * This is a KEY demonstration — it shows how different report types
  * have different fields, proving the value of a document database
  * over a fixed-schema relational database.
+ *
+ * Note: shows the fields of ONE SAMPLE document per type, not every
+ * possible field across all documents of that type.
  */
 exports.schemaAnalysis = async (req, res) => {
   try {
@@ -329,7 +396,7 @@ exports.schemaAnalysis = async (req, res) => {
 
     res.json({
       success: true,
-      description: 'Schema analysis — shows how each report type has different fields (variable schema)',
+      description: 'Schema analysis — shows the fields of one sample document per type (variable schema). Fields present only in other documents of the same type are not shown here.',
       totalTypes: types.length,
       data: analysis
     });
@@ -340,11 +407,29 @@ exports.schemaAnalysis = async (req, res) => {
 };
 
 /**
+ * GET /api/queries/allowed-operators
+ * Returns the list of operators permitted by the Query Playground.
+ * Always available (not gated by ENABLE_QUERY_PLAYGROUND).
+ */
+exports.allowedOperators = (req, res) => {
+  res.json({
+    success: true,
+    allowedOperators: Array.from(ALLOWED_DOLLAR_OPS),
+    blockedOperators: ['$where', '$function', '$accumulator']
+  });
+};
+
+/**
  * POST /api/queries/custom
  * Query 10: Custom query from the Query Playground.
  *
  * Accepts a raw MongoDB-style filter, projection, sort, and limit.
  * This is the "power user" feature for the demo.
+ *
+ * ⚠️  Requires ENABLE_QUERY_PLAYGROUND=true
+ * The filter, projection and sort objects are validated against the
+ * operator allow-list before being passed to the driver.
+ * limit is capped at 100, minimum 1.
  *
  * Body example:
  * {
@@ -355,6 +440,8 @@ exports.schemaAnalysis = async (req, res) => {
  * }
  */
 exports.customQuery = async (req, res) => {
+  if (!playgroundEnabled(res)) return;
+
   try {
     const db = getDb();
     const {
@@ -368,7 +455,16 @@ exports.customQuery = async (req, res) => {
     const parsedFilter = typeof filter === 'string' ? JSON.parse(filter) : filter;
     const parsedProjection = typeof projection === 'string' ? JSON.parse(projection) : projection;
     const parsedSort = typeof sort === 'string' ? JSON.parse(sort) : sort;
-    const parsedLimit = parseInt(limit) || 10;
+
+    // Cap limit at 100 with a minimum of 1
+    const rawLimit = parseInt(limit) || 10;
+    const parsedLimit = Math.max(1, Math.min(rawLimit, 100));
+
+    // Validate all user-supplied objects against the operator allow-list.
+    // This runs BEFORE any data reaches the MongoDB driver.
+    validateOperators(parsedFilter, 'filter');
+    validateOperators(parsedProjection, 'projection');
+    validateOperators(parsedSort, 'sort');
 
     const startTime = Date.now();
 
@@ -401,6 +497,15 @@ exports.customQuery = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Invalid JSON in query parameters',
+        details: error.message
+      });
+    }
+
+    // Operator validation failures (thrown by validateOperators)
+    if (error.message.includes('not permitted') || error.message.includes('allow-list')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Disallowed operator in query',
         details: error.message
       });
     }

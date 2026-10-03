@@ -4,8 +4,8 @@
 // This module handles connecting to Amazon DocumentDB with
 // TLS encryption. DocumentDB requires:
 //   1. TLS certificate (global-bundle.pem)
-//   2. retryWrites=false  (DocumentDB does NOT support retryable writes)
-//   3. directConnection=true
+//   2. retryWrites=false  (not supported on engine 5.0; supported from 8.0.2)
+//   3. directConnection=true  (choice not yet tested on the cluster; see SKILL.md §3)
 //
 // NOTE: The global-bundle.pem file must be downloaded on the
 // EC2 instance during Phase 1 setup:
@@ -29,8 +29,20 @@ async function connectToDatabase() {
 
   const caFilePath = path.join(__dirname, '..', 'global-bundle.pem');
 
-  // Check if TLS certificate exists
-  if (!fs.existsSync(caFilePath)) {
+  // ── TLS certificate check ────────────────────────────────
+  const isProd = process.env.NODE_ENV === 'production';
+  const caExists = fs.existsSync(caFilePath);
+
+  if (!caExists) {
+    if (isProd) {
+      // In production we MUST have TLS — connecting without it to DocumentDB
+      // would either fail (TLS required on cluster) or be insecure.
+      console.error('❌ FATAL: TLS certificate (global-bundle.pem) not found at:', caFilePath);
+      console.error('   Run scripts/get-cert.sh (or wget the cert) before starting in production.');
+      process.exit(1);
+    }
+    // Development: warn and attempt connection without TLS (useful for local
+    // mongod testing; will still fail against a real DocumentDB cluster).
     console.warn('⚠️  TLS certificate (global-bundle.pem) not found at:', caFilePath);
     console.warn('   Download it on EC2 with:');
     console.warn('   wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem');
@@ -38,9 +50,11 @@ async function connectToDatabase() {
     console.warn('   Attempting connection without TLS (will fail on DocumentDB)...');
   }
 
-  // Build the connection URI
-  // CRITICAL: retryWrites=false is REQUIRED for DocumentDB compatibility
-  const tlsOptions = fs.existsSync(caFilePath)
+  // Build connection URI.
+  // CRITICAL: retryWrites=false is REQUIRED for engine 5.0 (supported only from 8.0.2).
+  // directConnection=true: bypasses replica-set topology discovery inside VPC; still to be tested on cluster.
+  // tlsAllowInvalidCertificates is intentionally NOT set — always validate.
+  const tlsOptions = caExists
     ? `tls=true&tlsCAFile=${caFilePath}&retryWrites=false&directConnection=true`
     : 'retryWrites=false&directConnection=true';
 

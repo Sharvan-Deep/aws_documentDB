@@ -81,11 +81,11 @@ exports.getReportById = async (req, res) => {
   try {
     const db = getDb();
 
-    // Validate ObjectId format
+    // Validate ObjectId format — returns 400 for invalid IDs instead of 500
     if (!ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid report ID format'
+        error: 'Invalid report ID format. Expected a 24-character hex ObjectId.'
       });
     }
 
@@ -117,11 +117,18 @@ exports.getReportById = async (req, res) => {
  *
  * Required fields: type, status
  * Auto-generated: reportId, createdAt, updatedAt
+ * Stripped from client input: _id, reportId, createdAt
+ *   (clients must never set these; the server always generates them)
  */
 exports.createReport = async (req, res) => {
   try {
     const db = getDb();
-    const body = req.body;
+
+    // Strip fields the client must never control
+    const body = { ...req.body };
+    delete body._id;
+    delete body.reportId;
+    delete body.createdAt;
 
     // Basic validation
     if (!body.type) {
@@ -174,6 +181,10 @@ exports.createReport = async (req, res) => {
  * Update an existing report.
  * Supports partial updates — only the fields you send will be updated.
  * Supports nested field updates (e.g., {"inspector.name": "New Name"}).
+ *
+ * Stripped from client input: _id, reportId, createdAt
+ *   (clients must never overwrite these immutable fields)
+ * updatedAt is always set to the current time on update.
  */
 exports.updateReport = async (req, res) => {
   try {
@@ -182,15 +193,17 @@ exports.updateReport = async (req, res) => {
     if (!ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid report ID format'
+        error: 'Invalid report ID format. Expected a 24-character hex ObjectId.'
       });
     }
 
-    // Remove _id from update body if present (cannot modify _id)
+    // Strip immutable fields the client must not overwrite
     const updateBody = { ...req.body };
     delete updateBody._id;
+    delete updateBody.reportId;
+    delete updateBody.createdAt;
 
-    // Add updated timestamp
+    // Always stamp updatedAt on update
     updateBody.updatedAt = new Date();
 
     const result = await db.collection('reports').updateOne(
@@ -232,7 +245,7 @@ exports.deleteReport = async (req, res) => {
     if (!ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid report ID format'
+        error: 'Invalid report ID format. Expected a 24-character hex ObjectId.'
       });
     }
 
@@ -277,7 +290,7 @@ exports.addFinding = async (req, res) => {
     if (!ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid report ID format'
+        error: 'Invalid report ID format. Expected a 24-character hex ObjectId.'
       });
     }
 

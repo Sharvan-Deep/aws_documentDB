@@ -1,0 +1,32 @@
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+
+# ── Environment files (contain credentials) ──────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Build output ─────────────────────────────────────────────
+frontend/dist/
+
+# ── TLS certificate (downloaded on EC2, never committed) ──────
+backend/global-bundle.pem
+global-bundle.pem
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── OS files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE files ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+*.zip
