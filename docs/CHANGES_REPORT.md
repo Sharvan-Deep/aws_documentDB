@@ -26,7 +26,7 @@ I successfully aligned the frontend and backend with `SKILL.md` rules and the pr
 | `frontend/src/pages/CreateReport.jsx` | Added toast error notification on template fetch failure. | Improve UX during transient errors. | Task 3.4 |
 | `frontend/src/api/api.js` | Added `queryAllowedOperators` and `getHealthDb` exports. | Wire frontend to new API routes. | Task 3.2, 1.8 |
 | `README.md` | Synced compatibility table to SKILL.md §5, documented new variables and endpoints. | Maintain single source of truth. | Task 4.1 |
-| `docs/SKILL.md` | Removed resolved `[confirm]` markers (§2), updated validation and limits (§4). | Reflect verified code realities. | Task 4.2 |
+| `docs/skills/documentdb-inspection-app/SKILL.md` | Removed resolved `[confirm]` markers (§2), updated validation and limits (§4). | Reflect verified code realities. | Task 4.2 |
 
 ## 3. Checked and Already Correct
 - **Date Validation:** `reportsByDateRange` (`queryController.js`) was already correctly validating input dates and returning 400 for `NaN`.
