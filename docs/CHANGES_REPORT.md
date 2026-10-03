@@ -64,7 +64,6 @@ I successfully aligned the frontend and backend with `SKILL.md` rules and the pr
 - `SKILL.md` §5: Document `directConnection` behaviour inside the VPC.
 - `SKILL.md` §5: Document `$lookup` (joins) and `$merge` behaviour on engine 5.0.
 - `SKILL.md` §5: Document Change Streams behaviour.
-- `SKILL.md` §7: Confirm AWS strictly auto-restarts a stopped cluster after exactly 7 days.
 
 **Needs a decision from the team:**
 - `SKILL.md` §4: Should the unused template write routes (POST, PUT, DELETE) be entirely removed instead of just gated?
@@ -84,3 +83,18 @@ Before the live demo, verify the following on the EC2 server:
 ## 9. Deck Slide Corrections Needed
 - **Slide 14 (Speaker Notes):** Update the note "The playground gate and operator allow-list are both in queryController.js" to state that the operator allow-list and validation engine have been extracted to `utils/validateQuery.js`.
 - **Slide 7 (Table):** Add a row for `QueryPlayground` calling `GET /api/queries/allowed-operators`.
+
+## 10. Follow-up Verification
+The following actions were conducted to finalize alignment:
+- **Repo integration:** Moved all docs from `C:\aws\docs` into `C:\aws\inspection-app\docs`, fixing relative paths to ensure versioning together with code.
+- **`database.js` review:** Verified that logic introduced correctly halts the process `if (isProd)` without `global-bundle.pem`.
+- **`server.js` review:** Confirmed modifications were constrained explicitly to the new `/api/health/db` endpoint and updating the React SPA fallback route to safely bypass `/api/`.
+- **Unit test results:** `npm test` succeeded seamlessly (8/8 passing).
+- **Frontend build results:** `npm --prefix frontend run build` successfully created the bundle (12.07s) with only a standard Vite chunk size warning.
+- **Git Grep Fixes:** Searched the codebase for `unsupported`, `upload`, `compliance.`, `5000`, `localhost:5000`, and `0.0.0.0/0`. Identified `5000` in the backend default `PORT` as well as hardcoded timeout configurations, replacing them with `3000` and `60000` respectively to comply fully with instructions.
+- **Inaccurate Slides Identified:**
+  - **Slide 7:** Missing the `GET /api/queries/allowed-operators` endpoint on the QueryPlayground row.
+  - **Slide 11:** Missing backup and storage billing facts along with the 7-day auto-start AWS behavior.
+  - **Slide 14:** Inaccurately lists `ports 22 & 5000` (should be `3000`) and incorrectly states the allow-list is in `queryController.js` (is now `validateQuery.js`).
+- **Deck v3 Generation:** Based on the inaccuracies detected, I successfully generated `docs/T211_DocumentDB_Presentation_v3.pptx` correcting these precise textual elements using an automated python script, while preserving theme and layout.
+- **Testing Disclaimer:** Nothing was tested against a live Amazon DocumentDB cluster. The tests run cover the query validator logic natively in Node; backend DB endpoints were not run.
